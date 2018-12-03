@@ -3,18 +3,7 @@
 ----------Remote Controller Program----------
 ---------------------------------------------
 */
-/*interupt na logickou nulu
-PD2 - INT0 - J7 pin6
-0000 0100
-     8421*/
-/**
-       @file
-       @mainpage ProjektBMPT
-       @authors Marek Šimka and Dominik Walach
-       @date 3.12.2018
-       @copyright (c) 2018 Marek Šimka and Dominik Walach
-*/
-/*-------------- Libraries --------------*/
+
 #include "settings.h"
 #include <avr/io.h>
 #include <avr/interrupt.h>
@@ -23,37 +12,24 @@ PD2 - INT0 - J7 pin6
 #include "uart.h"
 #include "lcd.h"
 
+/* Constants and macros ------------------------------------------------------*/
 /**
  *  @brief Define UART buad rate.
  */
 #define UART_BAUD_RATE 9600
 
 /**
- *  @brief Define number of scanned samples
+ *  @brief Define number of pseudo-random values.
  */
-#define N 250   // number of scanned samples
+#define N 250             // number of scanned samples
 
 /* declaration of variables we going to use */
-/**
- *  @brief String of samples
- */
 volatile uint8_t sken[N];
-/**
- *  @brief String for UART
- */
 char uart_string[5];
-/**
- *  @brief Declaration of sample counter
- */
+char lcd_string[5];
 volatile uint16_t citac;
-/**
- *  @brief When value=1, all samples are in sken[N] string
- */
 volatile uint8_t sken_ready;
-
-/**
- *  @brief When value=0, starts saving data from port PD2
- */
+volatile uint8_t povoleno;
 volatile uint8_t INT0_enable;
 //volatile uint8_t pom=0;
 
@@ -61,37 +37,28 @@ void init();
 
 void init()
 {
-  /**
-   *  @vrief Initialization of I/O ports, UART and LCD display
-   */
   INT0_enable=1;
-  sken_ready=0;
+  povoleno=0;
+  sken_ready=0;   //
   DDRD&=~_BV(PD2);    // setting up port PD2 as an inpupt
   PORTD|=_BV(PD2);    // pull up aktivation on port PD2
   DDRB |= _BV(PB5);   // setting up port PB5 as an ouput
-  PORTB &= ~_BV(PB5);  // out port for LCD diplay
-  /*
-  setting up uart
-  */
+  PORTB &= ~_BV(PB5); // out port for LCD diplay
+  //setting up uart
   citac = 0;
   lcd_init(LCD_DISP_ON);  //switch on display
-  uart_init(UART_BAUD_SELECT(UART_BAUD_RATE, F_CPU));   // Initialize UART: asynchronous, 8-bit data, no parity, 1-bit stop
+  uart_init(UART_BAUD_SELECT(UART_BAUD_RATE, F_CPU)); // Initialize UART: asynchronous, 8-bit data, no parity, 1-bit stop
   lcd_command(1<<LCD_CGRAM);
   lcd_clrscr();     //lcd clear
   sei();      //allow interrupt
   EIMSK|=_BV(INT0);
 }
 
+
 ISR(INT0_vect) // when first zero comes in, start scaning
 {
-  /**
-  @vrief This function starts when input PIN detects interrupt from our IR receiver
-  */
-
   PORTB ^= _BV(PB5);    //turn on display on port PB5
   TIMSK0 |= _BV(TOIE0); // allow timer
-  //cli();  // deny interrupt to do not start again before scan[N] is not full yet
-  //citac = 0;
    while (citac <=N)  //scanning all N samples
    {
      sken[citac] = (PIND&0b00000100)>>2;  //determination if scanned value is 0 or 1
@@ -103,9 +70,6 @@ ISR(INT0_vect) // when first zero comes in, start scaning
 
 int main(void)
 {
-  /**
-  @vrief Main function where we specify input signals and correct output values
-  */
  uint8_t i;
  init();  //basic settings for all ports
  while(1)
@@ -119,7 +83,7 @@ int main(void)
               uart_puts("\r\n");
               uart_puts("\r\n");
               sken_ready=0;
-/* print all samples in uart, we used it for test communication
+/* print all samples in uart
      for(i=0;i<N;i++)
      {
        itoa(sken[i], uart_string,10);
